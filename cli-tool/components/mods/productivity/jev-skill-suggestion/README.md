@@ -213,6 +213,22 @@ Declared in `.claude-plugin/plugin.json` (`userConfig`). Set them in `/config`, 
 
 The entry's key is the plugin's id, and the id follows how the plugin was loaded: `"jev-skill-suggestion@skills-dir"` when auto-loaded from `.claude/skills/` (the `--mod` install), `"jev-skill-suggestion"` with `--plugin-dir`. Under the wrong key every option stays at its default, and the `ready on` line reports `no key set`.
 
+### Example settings against a local server
+
+`settings.example.json` is the `~/.claude/settings.json` fragment for a local
+server that speaks the `/v1/systemone` protocol (a self-hosted Jeff, say)
+instead of TypeSafe's API. Merge its `env` and `pluginConfigs` into your user
+settings (not project settings). The key `"local"` is a placeholder: the option
+must be non-empty, or the mod falls back to the built-in classifier.
+
+The thresholds in it (`gateThreshold` 0, `fitsThreshold` 0.6) were picked by
+replaying 24 prompts against a 0.8B local model, where the gate mean did not
+separate the prompts that need a skill from those that do not, and `fits` did.
+They come from a small sample on one model: replay your own prompts before
+trusting them. `timeoutMs` is raised to 2000 because a local ranking request
+over about ten long descriptions took around 1.5 s. Add `alwaysListed` and
+`neverSuggested` for the skills your workflow depends on the model seeing.
+
 ## Install
 
 The full sequence is in [Quick start](#quick-start); this is the detail behind it.

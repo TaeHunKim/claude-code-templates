@@ -1,0 +1,22 @@
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1"
+  },
+  "pluginConfigs": {
+    "jev-skill-suggestion@skills-dir": {
+      "options": {
+        "provider": "typesafe",
+        "typesafeApiKey": "local",
+        "typesafeBaseUrl": "http://localhost:8765",
+        "typesafeModel": "jeff",
+        "hideListing": true,
+        "inject": "content",
+        "gateThreshold": 0,
+        "fitsThreshold": 0.6,
+        "minPromptChars": 6,
+        "timeoutMs": 2000,
+        "logDecisions": true
+      }
+    }
+  }
+}
