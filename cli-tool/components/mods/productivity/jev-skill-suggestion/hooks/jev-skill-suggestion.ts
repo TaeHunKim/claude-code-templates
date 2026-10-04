@@ -114,6 +114,7 @@ import {
   syncedFileCandidates,
   trimListing,
   wideQuestions,
+  tooShort,
 } from './policy.ts'
 import type { Candidate, PolicyConfig, Provider, Rerank, Skill, Wide } from './policy.ts'
 
@@ -172,6 +173,7 @@ export const register: Register = (on, options) => {
   const rerankEnabled = flag('rerank', true)
   const excerptChars = number('excerptChars', 700)
   const timeoutMs = number('timeoutMs', 800)
+  const minPromptChars = number('minPromptChars', 0)
   const logDecisions = flag('logDecisions', true)
   const policy: PolicyConfig = {
     shortlist: Math.max(1, Math.round(number('shortlist', 3))),
@@ -258,6 +260,10 @@ export const register: Register = (on, options) => {
     // names its skill. Neither gets a suggestion.
     if (!e.text.trim() || /^\/\S/.test(e.text.trim())) return next(e)
     if (e.origin && NOT_A_TASK.has(e.origin.kind)) return next(e)
+    if (tooShort(e.text, minPromptChars)) {
+      if (logDecisions) $.ui.log(`[jev-skill-suggestion] no suggestion: prompt shorter than ${minPromptChars} characters`)
+      return next(e)
+    }
 
     /** One request to the active backend, or null on timeout, error or a non-2xx. */
     const ask = async (

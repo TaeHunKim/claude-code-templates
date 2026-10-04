@@ -135,6 +135,12 @@
       "title": "Log decisions",
       "description": "Write each selection to the session log",
       "default": true
+    },
+    "minPromptChars": {
+      "type": "number",
+      "title": "Shortest prompt asked about",
+      "description": "Prompts with fewer non-space characters than this get no suggestion and no request (bare confirmations like \"ok, do it\" name nothing a skill could match); 0 asks about every prompt",
+      "default": 0
     }
   }
 }

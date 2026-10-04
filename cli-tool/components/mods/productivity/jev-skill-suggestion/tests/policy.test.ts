@@ -44,6 +44,7 @@ import {
   wideQuestions,
 } from '../hooks/policy.ts'
 import type { Candidate, PolicyConfig, Skill } from '../hooks/policy.ts'
+import { tooShort } from '../hooks/policy.ts'
 
 const config: PolicyConfig = { shortlist: 3, gateThreshold: 0.3, fitsThreshold: 0.3 }
 
@@ -460,4 +461,11 @@ test('only a file with the backup\'s own shape is treated as a reusable backup',
   expect(validBackup('{"skillOverrides":{}}')).toBe(false)
   expect(validBackup('{nope')).toBe(false)
   expect(validBackup('[]')).toBe(false)
+})
+
+test('a prompt shorter than the minimum, whitespace not counted, is not asked about; 0 asks about everything', () => {
+  expect(tooShort('그래 올려줘', 6)).toBe(true)
+  expect(tooShort('  ok   do it ', 6)).toBe(false)
+  expect(tooShort('pdf 합쳐줘', 6)).toBe(false)
+  expect(tooShort('ok', 0)).toBe(false)
 })

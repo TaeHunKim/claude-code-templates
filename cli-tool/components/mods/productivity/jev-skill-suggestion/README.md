@@ -197,8 +197,11 @@ With a key set, the prompt text and every candidate skill's name and one-line de
   alwaysListed:     string  comma-separated names that stay in the listing
   neverSuggested:   string  comma-separated names never offered to the decision model
   timeoutMs:        number  latency budget per request (default 800)
+  minPromptChars:   number  prompts with fewer non-space characters get no request (default 0 = ask about all)
   logDecisions:     boolean log each decision (default true)
 ```
+
+A bare confirmation ("ok, do it") names nothing a skill could match, yet it still costs two requests. `minPromptChars` skips any prompt with fewer non-space characters than it, before any request goes out; 6 is a reasonable start. The cost is a real short request that names a skill, such as `pdf 줄여`, going unsuggested.
 
 `inject: "suggest"` with `hideListing: false` reproduces the cookbook exactly — the listing stays, the suggestion goes on top — and is the way to measure the suggestions against what the model would have chosen on its own before committing to the saving. The two thresholds are the cookbook's; TypeSafe's [confidence guide](https://docs.typesafe.ai/confidence) is the place to read before moving them. `alwaysListed` is for the one or two skills you want the model to know about on every prompt (a house-style `commit`, say); `neverSuggested` for skills that should only ever run when the user types them.
 

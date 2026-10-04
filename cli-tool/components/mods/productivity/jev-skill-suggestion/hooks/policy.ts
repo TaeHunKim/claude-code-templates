@@ -595,6 +595,15 @@ export function shortlistOf(wide: Wide, skills: readonly Skill[], count: number)
   return picked
 }
 
+/**
+ * Whether a prompt is too short to be a task: a bare confirmation ("ok, do it")
+ * names nothing a skill could match, and asking about it only costs latency.
+ * Counted without whitespace; 0 never skips.
+ */
+export function tooShort(text: string, minChars: number): boolean {
+  return minChars > 0 && text.replace(/\s/g, '').length < minChars
+}
+
 /** Whether the first request's answer is worth a second look at all. */
 export function passesGate(wide: Wide, config: PolicyConfig): boolean {
   return wide.gate === null || wide.gate >= config.gateThreshold
