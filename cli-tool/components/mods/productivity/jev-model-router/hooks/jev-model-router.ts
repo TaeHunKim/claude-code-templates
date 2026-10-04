@@ -41,7 +41,7 @@
  * Privacy: with a key set, the prompt text is sent to whichever backend the
  * key belongs to.
  */
-import type { Register } from 'claude-code'
+import type { EngineInterface, HttpResponse, Register } from 'claude-code'
 import {
   DEFAULT_BASE_URL,
   DEFAULT_MODEL,
@@ -60,6 +60,32 @@ import {
   bareCommand,
 } from './policy.ts'
 import type { Decision, Effort, PolicyConfig, Provider, Tier } from './policy.ts'
+
+/**
+ * One POST within `timeoutMs`, retried after `busyRetryMs` on a 529 (busy)
+ * while the budget lasts; null when the budget ran out first.
+ */
+async function post(
+  $: EngineInterface,
+  url: string,
+  headers: Record<string, string>,
+  body: string,
+  timeoutMs: number,
+  busyRetryMs: number,
+): Promise<HttpResponse | null> {
+  const deadline = (await $.clock.now()) + timeoutMs
+  for (;;) {
+    const left = deadline - (await $.clock.now())
+    if (left <= 0) return null
+    const response = await Promise.race([
+      $.http.fetch(url, { method: 'POST', headers, body }),
+      $.clock.sleep(left).then(() => null),
+    ])
+    if (!response || response.status !== 529 || busyRetryMs <= 0) return response
+    if (deadline - (await $.clock.now()) <= busyRetryMs) return response
+    await $.clock.sleep(busyRetryMs)
+  }
+}
 
 export const register: Register = (on, options) => {
   const text = (key: string, fallback: string) =>
@@ -105,6 +131,12 @@ export const register: Register = (on, options) => {
   // plan mode ends) and is then held; effort keeps moving every turn. A risky
   // verdict may still raise the model outside a window.
   const stickyMainModel = flag('stickyMainModel', false)
+  // Local addition: a backend that serves one request at a time (a local Jeff)
+  // answers 529 while it is busy, as when several subagents spawn at once.
+  // Retry after `busyRetryMs` for as long as the latency budget allows, rather
+  // than leaving that subagent unrouted. 0 turns retrying off.
+  const busyRetryMs = number('busyRetryMs', 100)
+
   const logDecisions = flag('logDecisions', true)
 
   const policy: PolicyConfig = {
@@ -213,14 +245,7 @@ export const register: Register = (on, options) => {
     let decision: Decision | null = null
     if (active) {
       try {
-        const response = await Promise.race([
-          $.http.fetch(url, {
-            method: 'POST',
-            headers: requestHeaders(active, apiKey, modelId),
-            body: requestBody(active, { prompt: e.text }, modelId),
-          }),
-          $.clock.sleep(timeoutMs),
-        ])
+        const response = await post($, url, requestHeaders(active, apiKey, modelId), requestBody(active, { prompt: e.text }, modelId), timeoutMs, busyRetryMs)
         if (response && response.ok) decision = readDecision(response.text)
         else if (response) $.ui.log(`[jev-model-router] ${active} responded ${response.status}`)
         else $.ui.log(`[jev-model-router] classification passed ${timeoutMs}ms; leaving the turn alone`)
@@ -348,18 +373,14 @@ export const register: Register = (on, options) => {
     let decision: Decision | null = null
     if (active) {
       try {
-        const response = await Promise.race([
-          $.http.fetch(url, {
-            method: 'POST',
-            headers: requestHeaders(active, apiKey, modelId),
-            body: requestBody(
-              active,
-              { prompt: e.prompt, description: e.description, agentType: e.subagentType },
-              modelId,
-            ),
-          }),
-          $.clock.sleep(timeoutMs),
-        ])
+        const response = await post(
+          $,
+          url,
+          requestHeaders(active, apiKey, modelId),
+          requestBody(active, { prompt: e.prompt, description: e.description, agentType: e.subagentType }, modelId),
+          timeoutMs,
+          busyRetryMs,
+        )
         if (response && response.ok) decision = readDecision(response.text)
         else if (response) $.ui.log(`[jev-model-router] ${active} responded ${response.status}`)
         else $.ui.log(`[jev-model-router] classification passed ${timeoutMs}ms; leaving the subagent alone`)

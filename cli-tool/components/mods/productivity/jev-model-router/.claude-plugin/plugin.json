@@ -130,6 +130,12 @@
       "title": "Hold the main loop's model",
       "description": "Choose the main model only on the session's first routed turn and when plan mode ends (or when a risky task is detected), then hold it; effort keeps being routed every turn. Needs routeMainModel.",
       "default": false
+    },
+    "busyRetryMs": {
+      "type": "number",
+      "title": "Retry when busy (ms)",
+      "description": "When the backend answers 529 (busy, e.g. a local Jeff serving one request at a time), wait this long and retry while the latency budget lasts; 0 turns retrying off",
+      "default": 100
     }
   }
 }

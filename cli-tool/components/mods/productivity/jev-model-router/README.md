@@ -138,6 +138,7 @@ With a key set, the prompt text leaves the machine and goes to whichever backend
   routeMainEffort:        boolean effort of the main loop (default true)
   routeMainModel:         boolean model of the main loop (default false)
   stickyMainModel:        boolean hold the main model between choice windows (default false)
+  busyRetryMs:            number  retry after a 529 busy answer, in ms (default 100; 0 = off)
   timeoutMs:              number  latency budget per classification (default 800)
   logDecisions:           boolean log each decision (default true)
 ```
@@ -167,6 +168,15 @@ the per-turn adjusting. `stickyMainModel: true` does that:
 Limit: an approved plan usually continues in the same turn, with no new prompt
 to classify, so the router reuses the last decision there. The model is
 re-chosen from the next prompt on.
+
+### Busy backends
+
+A backend that serves one request at a time (a local Jeff, say) answers `529`
+while it is busy, which happens when several subagents spawn at once. The router
+waits `busyRetryMs` and asks again for as long as `timeoutMs` allows; when the
+budget runs out the request is left unrouted, as with any other failure. The
+`Retry-After` header is not followed, since its one second would exceed the
+default 800 ms budget.
 
 Declared in `.claude-plugin/plugin.json` (`userConfig`). Set them in `/config`, in user settings (`~/.claude/settings.json`, not project settings), with `--settings <file>` or in managed settings:
 
