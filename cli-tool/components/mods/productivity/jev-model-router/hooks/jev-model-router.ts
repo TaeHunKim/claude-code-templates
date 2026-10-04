@@ -100,6 +100,11 @@ export const register: Register = (on, options) => {
   const routeMainEffort = flag('routeMainEffort', true)
   const routeMainModel = flag('routeMainModel', false)
   const routeMainLoop = routeMainEffort || routeMainModel
+  // Local addition: with `stickyMainModel` the main loop's model is chosen only
+  // when a window is open (the first routed turn of a session, and the moment
+  // plan mode ends) and is then held; effort keeps moving every turn. A risky
+  // verdict may still raise the model outside a window.
+  const stickyMainModel = flag('stickyMainModel', false)
   const logDecisions = flag('logDecisions', true)
 
   const policy: PolicyConfig = {
@@ -124,6 +129,49 @@ export const register: Register = (on, options) => {
   let announced = false
   let appliedTurnId: string | undefined
   let applied: { model?: string; effort?: Effort } | null = null
+  // stickyMainModel state: whether a model choice is allowed now, the model
+  // held between windows, the last decision (reused when plan mode ends in the
+  // middle of a turn, with no new prompt to classify), and the last seen mode.
+  let modelWindow = true
+  let planExited = false
+  let pickedModel: string | undefined
+  let lastDecision: Decision | null = null
+  let prevMode: string | undefined
+  const resetSticky = () => {
+    modelWindow = true
+    planExited = false
+    pickedModel = undefined
+    lastDecision = null
+    prevMode = undefined
+  }
+
+  // plan -> any other mode, as seen at the next prompt (Shift+Tab, or an
+  // approved plan that ended the turn): the model may be chosen again.
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    if (stickyMainModel && !e.agent_id && e.permission_mode) {
+      if (prevMode === 'plan' && e.permission_mode !== 'plan') modelWindow = true
+      prevMode = e.permission_mode
+    }
+    return next(e)
+  })
+
+  // An approved ExitPlanMode ends plan mode inside the running turn: open the
+  // window now, so the step after it can pick the model for the execution.
+  on('tool.call', { tool: 'ExitPlanMode' }, async ($, e, next) => {
+    const res = await next(e)
+    const failed = 'deny' in res || ('isError' in res && res.isError)
+    if (stickyMainModel && !e.agentId && !failed) {
+      planExited = true
+      modelWindow = true
+      prevMode = 'default'
+    }
+    return res
+  })
+
+  on('session.end', async ($, e, next) => {
+    resetSticky()
+    return next(e)
+  })
 
   on('prompt.submit', async ($, e, next) => {
     // Before the routing guards: a module whose switches are all off has still
@@ -214,16 +262,34 @@ export const register: Register = (on, options) => {
 
     // Every request after the first reuses what the turn settled on, so
     // neither the model nor the effort changes under its own tool loop.
-    if (e.index > 0 && e.turnId === appliedTurnId) {
+    // The one exception: plan mode just ended inside this turn.
+    const planWindow = stickyMainModel && planExited
+    if (e.index > 0 && e.turnId === appliedTurnId && !planWindow) {
       return yield* next(applied ? { ...e, ...applied } : e)
     }
 
-    const decision = pending.take()
+    let decision = pending.take()
+    if (planWindow && !decision) decision = lastDecision
+    if (decision) lastDecision = decision
     const routing = route(decision, { model: e.model, effort: e.effort }, policy)
     const change: { model?: string; effort?: Effort } = {}
     // The main loop's `model` is sent to the API as written, so an alias
     // becomes its id here; a subagent's (agent.spawn) may stay an alias.
-    if (routeMainModel && routing.model) change.model = requestModelId(routing.model)
+    if (routeMainModel) {
+      const risk = decision?.risky != null && decision.risky > 0.7
+      const mayPick = !stickyMainModel || modelWindow || risk
+      if (routing.model && mayPick) change.model = requestModelId(routing.model)
+      else if (stickyMainModel && pickedModel) change.model = pickedModel
+      if (stickyMainModel) {
+        if (modelWindow && decision) {
+          modelWindow = false
+          pickedModel = change.model ?? e.model
+        } else if (risk && change.model) {
+          pickedModel = change.model
+        }
+      }
+    }
+    if (planWindow) planExited = false
     if (routeMainEffort && routing.effort) change.effort = routing.effort
 
     appliedTurnId = e.turnId

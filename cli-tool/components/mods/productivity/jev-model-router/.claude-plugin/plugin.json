@@ -124,6 +124,12 @@
       "title": "Log decisions",
       "description": "Write each routing decision to the session log",
       "default": true
+    },
+    "stickyMainModel": {
+      "type": "boolean",
+      "title": "Hold the main loop's model",
+      "description": "Choose the main model only on the session's first routed turn and when plan mode ends (or when a risky task is detected), then hold it; effort keeps being routed every turn. Needs routeMainModel.",
+      "default": false
     }
   }
 }

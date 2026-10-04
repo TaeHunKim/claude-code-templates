@@ -137,6 +137,7 @@ With a key set, the prompt text leaves the machine and goes to whichever backend
   routeSubagentModel:     boolean model of each subagent (default true)
   routeMainEffort:        boolean effort of the main loop (default true)
   routeMainModel:         boolean model of the main loop (default false)
+  stickyMainModel:        boolean hold the main model between choice windows (default false)
   timeoutMs:              number  latency budget per classification (default 800)
   logDecisions:           boolean log each decision (default true)
 ```
@@ -148,6 +149,24 @@ family's current id (`haiku` → `claude-haiku-4-5-20251001`, `sonnet` →
 `claude-sonnet-5`, `opus` → `claude-opus-5`). Set a full id to pin a
 specific version. A decision for the tier the session already runs is not a
 change, so a session on `claude-opus-5[1m]` keeps its 1M-context id.
+
+### Holding the main loop's model
+
+Switching the main loop's model invalidates the prompt cache, so with
+`routeMainModel` on you may prefer to choose the model rarely and let effort do
+the per-turn adjusting. `stickyMainModel: true` does that:
+
+- The model is chosen on the session's first routed turn, and again when plan
+  mode ends (the next prompt after a `plan` → other mode change, or an approved
+  `ExitPlanMode`). Between those windows the chosen model is held.
+- Effort keeps being routed on every turn.
+- A risky verdict (above 0.7) may still raise the model outside a window.
+- A turn that gets no decision (timeout, error) does not use up the window.
+- `/clear` and the end of a session reopen the first window.
+
+Limit: an approved plan usually continues in the same turn, with no new prompt
+to classify, so the router reuses the last decision there. The model is
+re-chosen from the next prompt on.
 
 Declared in `.claude-plugin/plugin.json` (`userConfig`). Set them in `/config`, in user settings (`~/.claude/settings.json`, not project settings), with `--settings <file>` or in managed settings:
 
