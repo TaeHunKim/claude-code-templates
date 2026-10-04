@@ -190,6 +190,19 @@ loaded: `"jev-model-router@skills-dir"` when auto-loaded from `.claude/skills/`
 wrong key every option stays at its default, and the `ready on` line reports
 `no key set`.
 
+### Example settings against a local server
+
+`settings.example.json` is the `~/.claude/settings.json` fragment for a local
+server that speaks the `/v1/systemone` protocol (a self-hosted Jeff, say)
+instead of TypeSafe's API. Merge its `env` and `pluginConfigs` into your user
+settings (not project settings). The key `"local"` is a placeholder: the option
+must be non-empty, or the router falls back to the built-in classifier.
+
+It turns on `routeMainModel` together with `stickyMainModel`, so the main
+model is chosen at the start of a session and when plan mode ends, while effort
+keeps moving every turn. The two confidence bars are raised a little (0.4 and
+0.7) because a small local model reports low confidence on many answers.
+
 ## Install
 
 ```sh

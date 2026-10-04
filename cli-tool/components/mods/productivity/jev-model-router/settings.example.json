@@ -1,0 +1,22 @@
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1"
+  },
+  "pluginConfigs": {
+    "jev-model-router@skills-dir": {
+      "options": {
+        "provider": "typesafe",
+        "typesafeApiKey": "local",
+        "typesafeBaseUrl": "http://localhost:8765",
+        "typesafeModel": "jeff",
+        "routeMainModel": true,
+        "routeMainEffort": true,
+        "routeSubagentModel": true,
+        "stickyMainModel": true,
+        "minUpgradeConfidence": 0.4,
+        "minDowngradeConfidence": 0.7,
+        "logDecisions": true
+      }
+    }
+  }
+}
